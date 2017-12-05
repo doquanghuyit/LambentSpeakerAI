@@ -86,9 +86,9 @@ public class ActivityLambentSpeaker extends Activity {
                 if (device != null) {
                     String deviceName = Objects.toString(device.getName(), "a device");
                     if (newState == BluetoothProfile.STATE_CONNECTED) {
-                        speak("Connected to " + deviceName);
+
                     } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                        speak("Disconnected from " + deviceName);
+
                     }
                 }
             }
@@ -132,7 +132,6 @@ public class ActivityLambentSpeaker extends Activity {
         }
 
         // We use Text-to-Speech to indicate status change to the user
-        initTts();
 
         registerReceiver(mAdapterStateChangeReceiver, new IntentFilter(
                 BluetoothAdapter.ACTION_STATE_CHANGED));
@@ -232,6 +231,8 @@ public class ActivityLambentSpeaker extends Activity {
         startActivityForResult(discoverableIntent, REQUEST_CODE_ENABLE_DISCOVERABLE);
     }
 
+
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -259,8 +260,7 @@ public class ActivityLambentSpeaker extends Activity {
             // generate corresponding broadcast intents or profile proxy events that you can
             // listen to and react appropriately.
 
-            speak("Bluetooth audio sink is discoverable for " + DISCOVERABLE_TIMEOUT_MS +
-                    " milliseconds. Look for a device named " + ADAPTER_FRIENDLY_NAME);
+
 
         }
     }
@@ -269,7 +269,6 @@ public class ActivityLambentSpeaker extends Activity {
         if (mA2DPSinkProxy == null || mBluetoothAdapter == null || !mBluetoothAdapter.isEnabled()) {
             return;
         }
-        speak("Disconnecting devices");
         for (BluetoothDevice device: mA2DPSinkProxy.getConnectedDevices()) {
             Log.i(TAG, "Disconnecting device " + device);
             A2dpSinkHelper.disconnect(mA2DPSinkProxy, device);
@@ -278,27 +277,4 @@ public class ActivityLambentSpeaker extends Activity {
 
 
 
-    private void initTts() {
-        mTtsEngine = new TextToSpeech(ActivityLambentSpeaker.this,
-                new TextToSpeech.OnInitListener() {
-                    @Override
-                    public void onInit(int status) {
-                        if (status == TextToSpeech.SUCCESS) {
-                            mTtsEngine.setLanguage(Locale.US);
-                        } else {
-                            Log.w(TAG, "Could not open TTS Engine (onInit status=" + status
-                                    + "). Ignoring text to speech");
-                            mTtsEngine = null;
-                        }
-                    }
-                });
-    }
-
-
-    private void speak(String utterance) {
-        Log.i(TAG, utterance);
-        if (mTtsEngine != null) {
-            mTtsEngine.speak(utterance, TextToSpeech.QUEUE_ADD, null, UTTERANCE_ID);
-        }
-    }
 }
