@@ -29,8 +29,14 @@ import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.List;
 import java.util.Objects;
+
+import javazoom.jl.decoder.Bitstream;
+import javazoom.jl.decoder.Decoder;
+import javazoom.jl.decoder.Header;
+import javazoom.jl.decoder.SampleBuffer;
 
 public class ActivityLambentDac extends Activity {
     private static final String TAG = "ActivityLambentDac";
@@ -48,35 +54,40 @@ public class ActivityLambentDac extends Activity {
     private AudioDeviceInfo audioInputDevice = null;
     private AudioDeviceInfo audioOutputDevice = null;
     private ArrayList<ByteBuffer> mAssistantResponses = new ArrayList<>();
+
+    private Decoder mDecoder;
+    private AudioTrack mAudioTrack;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         // Audio routing configuration: use default routing.
-        audioInputDevice = findAudioDevice(AudioManager.GET_DEVICES_INPUTS, AudioDeviceInfo.TYPE_BUILTIN_SPEAKER);
-        if (audioInputDevice == null) {
-            Log.e(TAG, "failed to find I2S audio input device, using default");
-        }else {
-            Log.e(TAG, "found I2S audio input device");
-        }
-        audioOutputDevice = findAudioDevice(AudioManager.GET_DEVICES_OUTPUTS, AudioDeviceInfo.TYPE_BUILTIN_SPEAKER);
+
+        audioOutputDevice = findAudioDevice(AudioManager.GET_DEVICES_OUTPUTS, AudioDeviceInfo.TYPE_BUS);
         if (audioOutputDevice == null) {
             Log.e(TAG, "failed to found I2S audio output device, using default");
         }else {
+            Log.e(TAG,"getType::::"+audioOutputDevice.getType());
+            Log.e(TAG,"getId::::"+audioOutputDevice.getId());
+            Log.e(TAG,"getProductName::::"+audioOutputDevice.getProductName());
+            Log.e(TAG,"getSampleRates::::"+audioOutputDevice.getSampleRates().length);
             Log.e(TAG, "found I2S audio output device");
         }
 
 
 
-        readMediaInfo();
-        init();
+//        readMediaInfo();
+//        init();
+//
+//        try {
+//            play();
+//        }catch (Exception e)
+//        {
+//            Log.e(TAG, "Exception::",e);
+//        }
 
-        try {
-            play();
-        }catch (Exception e)
-        {
-            Log.e(TAG, "Exception::",e);
-        }
+        playMp3();
 
 
     }
@@ -97,7 +108,8 @@ public class ActivityLambentDac extends Activity {
 
         MediaFormat mf = mex.getTrackFormat(0);
 
-        bitRate = mf.getInteger(MediaFormat.KEY_BIT_RATE);
+//        bitRate = mf.getInteger(MediaFormat.KEY_BIT_RATE);
+        bitRate =192;
         sampleRate = mf.getInteger(MediaFormat.KEY_SAMPLE_RATE);
 //        channelMask =  mf.getInteger(MediaFormat.KEY_CHANNEL_MASK);
         encoding =  AudioFormat.ENCODING_PCM_16BIT;
@@ -121,7 +133,7 @@ public class ActivityLambentDac extends Activity {
 
         mAudioOutputBufferSize = AudioTrack.getMinBufferSize(
                 sampleRate,
-                channelMask,
+                AudioFormat.CHANNEL_IN_STEREO,
                 audioEncoding);
     }
 
@@ -133,9 +145,9 @@ public class ActivityLambentDac extends Activity {
                 .setBufferSizeInBytes(mAudioOutputBufferSize)
                 .setTransferMode(AudioTrack.MODE_STREAM)
                 .build();
-        if (audioOutputDevice != null) {
-            audioTrack.setPreferredDevice(audioOutputDevice);
-        }
+//        if (audioOutputDevice != null) {
+//            audioTrack.setPreferredDevice(audioOutputDevice);
+//        }
         audioTrack.setVolume(AudioTrack.getMaxVolume());
         audioTrack.play();
 
@@ -174,6 +186,56 @@ public class ActivityLambentDac extends Activity {
     }
 
 
+    public void playMp3()
+    {
+        final int sampleRate = 44100;
+        final int minBufferSize = AudioTrack.getMinBufferSize(sampleRate,
+                AudioFormat.CHANNEL_OUT_STEREO,
+                AudioFormat.ENCODING_PCM_16BIT);
+
+        mAudioTrack = new AudioTrack(AudioManager.STREAM_MUSIC,
+                sampleRate,
+                AudioFormat.CHANNEL_OUT_STEREO,
+                AudioFormat.ENCODING_PCM_16BIT,
+                minBufferSize,
+                AudioTrack.MODE_STREAM);
+
+        if (audioOutputDevice != null) {
+            mAudioTrack.setPreferredDevice(audioOutputDevice);
+        }
+
+        mDecoder = new Decoder();
+        Thread thread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    InputStream in = getResources().openRawResource(R.raw.music);
+                    Bitstream bitstream = new Bitstream(in);
+
+                    final int READ_THRESHOLD = 2147483647;
+                    int framesReaded = READ_THRESHOLD;
+
+                    Header header;
+                    for(; framesReaded-- > 0 && (header = bitstream.readFrame()) != null;) {
+                        SampleBuffer sampleBuffer = (SampleBuffer) mDecoder.decodeFrame(header, bitstream);
+                        short[] buffer = sampleBuffer.getBuffer();
+                        mAudioTrack.write(buffer, 0, buffer.length);
+                        bitstream.closeFrame();
+                    }
+
+                    mAudioTrack.stop();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    mAudioTrack.stop();
+                }
+            }
+        });
+        thread.start();
+
+        mAudioTrack.play();
+    }
+
+
     public byte[] inputStreamToByteArray(InputStream inStream) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         byte[] buffer = new byte[8192];
@@ -188,12 +250,18 @@ public class ActivityLambentDac extends Activity {
     private AudioDeviceInfo findAudioDevice(int deviceFlag, int deviceType) {
         AudioManager manager = (AudioManager) this.getSystemService(Context.AUDIO_SERVICE);
         AudioDeviceInfo[] adis = manager.getDevices(deviceFlag);
+        AudioDeviceInfo adireturn = null;
+        Log.e(TAG,"adis size::"+adis.length+"::deviceType::"+deviceType);
         for (AudioDeviceInfo adi : adis) {
+            Log.e(TAG,"getType::"+adi.getType());
+            Log.e(TAG,"getId::"+adi.getId());
+            Log.e(TAG,"getProductName::"+adi.getProductName());
+            Log.e(TAG,"getSampleRates::"+adi.getSampleRates().length);
             if (adi.getType() == deviceType) {
-                return adi;
+                adireturn =  adi;
             }
         }
-        return null;
+        return adireturn;
     }
 
 
