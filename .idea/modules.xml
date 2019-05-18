@@ -2,6 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
+      <module fileurl="file://$PROJECT_DIR$/.idea/LambentSpeakerAI.iml" filepath="$PROJECT_DIR$/.idea/LambentSpeakerAI.iml" />
       <module fileurl="file://$PROJECT_DIR$/LambentSpeakerAI.iml" filepath="$PROJECT_DIR$/LambentSpeakerAI.iml" />
       <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
       <module fileurl="file://$PROJECT_DIR$/jl1.0.1/jl1.0.1.iml" filepath="$PROJECT_DIR$/jl1.0.1/jl1.0.1.iml" />
